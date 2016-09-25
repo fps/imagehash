@@ -47,6 +47,15 @@ void set_watchdog_timeout(unsigned watchdog_timeout_seconds)
     }
 }
 
+void print_hash(uint8_t *hash, int len)
+{
+    for (int index = 0; index < len; ++index)
+    {
+        printf("%02x", hash[index]);
+    }
+    printf("\n");
+}
+
 int main(int argc, char *argv[])
 {
     namespace po = boost::program_options;
@@ -104,12 +113,9 @@ int main(int argc, char *argv[])
             hash = ph_mh_imagehash(input_file.c_str(), hash_length);
     
             //! TODO: ERROR HANDLING?
+
+            print_hash(hash, hash_length);
     
-            for (int index = 0; index < hash_length; ++index)
-            {
-                printf("%02x", hash[index]);
-            }
-            printf("\n");
         }
         else
         {
@@ -122,6 +128,8 @@ int main(int argc, char *argv[])
             std::string line;
             while(std::getline(in, line))
             {
+                // std::cout << line << std::endl;
+
                 if (line.length() != 0)
                 {
                     if (line.length() % 2 != 0)
@@ -142,7 +150,14 @@ int main(int argc, char *argv[])
 
                     hashes.push_back(hash);
                     hash_lengths.push_back(line.length() / 2);
-                }
+
+                    
+                    // for (int index = 0; index < line.length()/2; ++index)
+                    // {
+                    //     printf("%02x", hash[index]);
+                    // }
+                    // printf("\n");
+                 }
             }
 
             for (unsigned index = 0; index < hashes.size(); ++index)
@@ -153,6 +168,8 @@ int main(int argc, char *argv[])
                     if (distance < threshold)
                     {
                         std::cout << index << ":" << index2 << " " << distance << std::endl;
+                        // print_hash(hashes[index], hash_lengths[index]);
+                        // print_hash(hashes[index2], hash_lengths[index2]);
                     }
                 }
             }
