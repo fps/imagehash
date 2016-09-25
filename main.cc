@@ -95,8 +95,6 @@ int main(int argc, char *argv[])
         }
         else
         {
-            // Memory leak that we don't care about since after this the
-            // program exits anyways.
             std::vector<uint8_t*> hashes;
             std::vector<int> hash_lengths;
 
@@ -137,6 +135,11 @@ int main(int argc, char *argv[])
                         std::cout << index << " " << index2 << " " << distance << std::endl;
                     }
                 }
+            }
+
+            for (auto *h : hashes)
+            {
+                delete h;
             }
         }
     }
