@@ -24,6 +24,7 @@
 #include <string>
 #include <climits>
 #include <cstdio>
+#include <fstream>
 
 #include <sys/time.h>
 
@@ -54,6 +55,8 @@ int main(int argc, char *argv[])
     
     unsigned watchdog_timeout_seconds = 15u;
     
+    double threshold = 0;
+
     const char *license = 
         #include "LICENSE.txt"
     ;
@@ -63,7 +66,8 @@ int main(int argc, char *argv[])
         po::options_description options_description;
         options_description.add_options()
             ("help,h", "Output help text and exit successfully")
-            ("input-file,i", po::value<std::string>(&input_file)->default_value(input_file), "The input video file name")
+            ("input-file,i", po::value<std::string>(&input_file)->default_value(input_file), "The input video file name (or text file for kNN mode)")
+            ("threshold", po::value<double>(&threshold)->default_value(threshold), "Interpret input-file as text file containing lines with hex encoded image hashes. Prints for every line the line numbers with image hashes that are closer than threshold")
             ("watchdog-timeout", po::value<unsigned>(&watchdog_timeout_seconds)->default_value(watchdog_timeout_seconds), "How long to wait for processing a frame (including seeking, etc) to finish. If this time (seconds) is exceeded abort with failure. Use 0 to disable the watchdog.")
             ("license", "Output license information")
         ;
@@ -90,20 +94,69 @@ int main(int argc, char *argv[])
             std::cout << license << std::endl;
             return EXIT_SUCCESS;
         }
+   
+        if (0 == threshold)
+        { 
+            int hash_length = 0;
     
-        int hash_length = 0;
-
-        uint8_t *hash = nullptr;    
-
-        hash = ph_mh_imagehash(input_file.c_str(), hash_length);
-
-        //! TODO: ERROR HANDLING?
-
-        for (int index = 0; index < hash_length; ++index)
-        {
-            printf("%x", hash[index]);
+            uint8_t *hash = nullptr;    
+    
+            hash = ph_mh_imagehash(input_file.c_str(), hash_length);
+    
+            //! TODO: ERROR HANDLING?
+    
+            for (int index = 0; index < hash_length; ++index)
+            {
+                printf("%02x", hash[index]);
+            }
+            printf("\n");
         }
-        printf("\n");
+        else
+        {
+            // Memory leak that we don't care about since after this the
+            // program exits anyways.
+            std::vector<uint8_t*> hashes;
+            std::vector<int> hash_lengths;
+
+            std::ifstream in(input_file);
+            std::string line;
+            while(std::getline(in, line))
+            {
+                if (line.length() != 0)
+                {
+                    if (line.length() % 2 != 0)
+                    {
+                        throw std::runtime_error("malformed hash");
+                    }
+
+                    // Read pairs of characters
+                    uint8_t *hash = new uint8_t[line.length() / 2];
+
+                    for (unsigned index = 0; index < line.length() / 2; ++index)
+                    {
+                        std::string numstring = line.substr(2 * index, 2);
+                        unsigned num = 0;
+                        sscanf(numstring.c_str(), "%x", &num);
+                        hash[index] = num;
+                    }
+
+                    hashes.push_back(hash);
+                    hash_lengths.push_back(line.length() / 2);
+                }
+            }
+
+            for (unsigned index = 0; index < hashes.size(); ++index)
+            {
+                for (unsigned index2 = index + 1; index2 < hashes.size(); ++index2)
+                {
+                    double distance = ph_hammingdistance2(hashes[index], hash_lengths[index], hashes[index2], hash_lengths[index2]);
+                    if (distance < threshold)
+                    {
+                        std::cout << index << ":" << index2 << " " << distance << std::endl;
+                    }
+                }
+            }
+        }
     }
     catch(std::exception &e)
     {
