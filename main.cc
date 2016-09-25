@@ -28,25 +28,6 @@
 
 #include <sys/time.h>
 
-void set_watchdog_timeout(unsigned watchdog_timeout_seconds)
-{
-    if (0 != watchdog_timeout_seconds)
-    {
-        itimerval timer;
-        itimerval old_timer;
-        timer.it_interval.tv_sec = 0;
-        timer.it_interval.tv_usec = 0;
-        timer.it_value.tv_sec = watchdog_timeout_seconds;
-        timer.it_value.tv_usec = 0;
-        int timer_success = setitimer(ITIMER_VIRTUAL, &timer, &old_timer);
-        
-        if (0 != timer_success)
-        {
-            throw std::runtime_error("Failed to set watchdog timeout");
-        }
-    }
-}
-
 void print_hash(uint8_t *hash, int len)
 {
     for (int index = 0; index < len; ++index)
@@ -59,11 +40,7 @@ void print_hash(uint8_t *hash, int len)
 int main(int argc, char *argv[])
 {
     namespace po = boost::program_options;
-    
     std::string input_file = "image.png";
-    
-    unsigned watchdog_timeout_seconds = 15u;
-    
     double threshold = 0;
 
     const char *license = 
@@ -75,9 +52,8 @@ int main(int argc, char *argv[])
         po::options_description options_description;
         options_description.add_options()
             ("help,h", "Output help text and exit successfully")
-            ("input-file,i", po::value<std::string>(&input_file)->default_value(input_file), "The input video file name (or text file for kNN mode)")
-            ("threshold", po::value<double>(&threshold)->default_value(threshold), "Interpret input-file as text file containing lines with hex encoded image hashes. Prints for every line the line numbers with image hashes that are closer than threshold")
-            ("watchdog-timeout", po::value<unsigned>(&watchdog_timeout_seconds)->default_value(watchdog_timeout_seconds), "How long to wait for processing a frame (including seeking, etc) to finish. If this time (seconds) is exceeded abort with failure. Use 0 to disable the watchdog.")
+            ("input-file,i", po::value<std::string>(&input_file)->default_value(input_file), "The input video file name (or text file for threshold mode)")
+            ("threshold", po::value<double>(&threshold)->default_value(threshold), "Interpret input-file as text file containing lines with hex encoded image hashes. Prints for every line the line numbers with image hashes that are closer than threshold followed by the distance")
             ("license", "Output license information")
         ;
         
@@ -128,8 +104,6 @@ int main(int argc, char *argv[])
             std::string line;
             while(std::getline(in, line))
             {
-                // std::cout << line << std::endl;
-
                 if (line.length() != 0)
                 {
                     if (line.length() % 2 != 0)
@@ -150,13 +124,6 @@ int main(int argc, char *argv[])
 
                     hashes.push_back(hash);
                     hash_lengths.push_back(line.length() / 2);
-
-                    
-                    // for (int index = 0; index < line.length()/2; ++index)
-                    // {
-                    //     printf("%02x", hash[index]);
-                    // }
-                    // printf("\n");
                  }
             }
 
@@ -167,9 +134,7 @@ int main(int argc, char *argv[])
                     double distance = ph_hammingdistance2(hashes[index], hash_lengths[index], hashes[index2], hash_lengths[index2]);
                     if (distance < threshold)
                     {
-                        std::cout << index << ":" << index2 << " " << distance << std::endl;
-                        // print_hash(hashes[index], hash_lengths[index]);
-                        // print_hash(hashes[index2], hash_lengths[index2]);
+                        std::cout << index << " " << index2 << " " << distance << std::endl;
                     }
                 }
             }
