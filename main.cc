@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            for (auto *h : hashes)
+            for (auto h : hashes)
             {
                 delete h;
             }
